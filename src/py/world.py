@@ -20,6 +20,15 @@ class World(object):
 		from DA import DA
 		self.algorithm = DA(self.students, self.schools)
 
+	def print_current_allocation(self):
+		print({std: std.assigned_school for std in self.students})
+
+	def calculate_permutations(self):
+		from itertools import permutations as tools_permu
+		num_students = len(self.students)
+		positions = list(range(num_students))
+		self.permutations = list(tools_permu(positions))
+
 	def run(self, show=False, diagnose=False):
 		if self.algorithm is None:
 			raise RuntimeError('must choose an algorithm first')
@@ -27,7 +36,9 @@ class World(object):
 		self.algorithm.clear_result()
 		self.algorithm.run(verbose=diagnose)
 		if show:
-			self.algorithm.show_result()
+			result = self.algorithm.show_result()
+			return result
+		return None
 
 	def break_ties(self, method, verbose=False, single_order=None, rnd=None):
 		if method == 'single':
@@ -41,31 +52,53 @@ class World(object):
 			i = 0
 			for sch in self.schools:
 				sch.break_ties(method='multiple', verbose=verbose, rnd=rnd, 
-								index=i, permutations=self.permutations)
+								index=i, permus=self.permutations)
 				i += 1
 		else:
 			raise NotImplementedError('invalid method %s' % method)
 
 	def evaluate(self, sosm):
-		return all([std.assigned_school==sosm[std] for std in self.students])
+		match_all_locs = [std.assigned_school==sosm[std] for std in self.students]
+		# import pdb; pdb.set_trace()
+		return all(match_all_locs)
 
-	def find_sosm(self):
-		return None
+	def find_sosm(self, method, single_order, rnd):
+		from stable_improvement_cycle import DA_solution
+		# import pdb; pdb.set_trace()
+		self.break_ties(method, single_order=single_order, rnd=rnd)
+		self.run()
+
+		solution = DA_solution(self.students, self.schools)
+		success, sosm = solution.stable_improvement_cycle()
+		if not success:
+			self.print_current_allocation()
+			raise RuntimeError('failed to find sosm')
+		return sosm
 
 	def simulate(self, method, rounds=100, show=False, diagnose=False, single_order=None, sosm=None):
 		if diagnose:
 			for sch in self.schools:
 				print('%s preference: %s' % (sch, sch.preference_order))
-		stats = []
+		
+		if method == 'single':
+			if sosm is None:
+				sosm = self.find_sosm(method, single_order, None)
+				print('found sosm: \n\t %s' % sosm)
 
-		if sosm is None:
-			sosm = self.find_sosm()
+		stats = []
 
 		for rnd in range(rounds):
 			if rounds>1 and diagnose:
 				print('\nround %s' % rnd)
+
+			if method == 'multiple':
+				sosm = self.find_sosm(method, single_order, rnd)
+				if diagnose:
+					print('found sosm: \n\t %s' % sosm)
+
 			self.break_ties(method, verbose=diagnose, single_order=single_order, rnd=rnd)
 			self.run(show=show, diagnose=diagnose)
+
 			stats.append(self.evaluate(sosm))
 
 		return sum(stats) / rounds
@@ -99,26 +132,32 @@ class World(object):
 		s2.init_preference(self.schools, [z, y, x])
 		s3.init_preference(self.schools, [y, z, x])
 
+		self.calculate_permutations()
+
 		return {s1:x, s2:z, s3:y}
 
 	def run_one_example(self):
 		sosm = w.init_example()
 		w.use_DA()
-		w.simulate('single', 3, show=True, diagnose=True, single_order={self.students[i]: i for i in range(3)})
+		result = w.simulate('single', 3, show=True, diagnose=False, single_order={self.students[i]: i for i in range(3)})
+		print(result)
 
 	def run_example_single(self):
 		sosm = w.init_example()
 		w.use_DA()
-		self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
+		# self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
 
 		stats = []
-		for permutation in permutations:
+		for permutation in self.permutations:
 			single_order = {self.students[i]: permutation[i] for i in range(3)}
 			print(single_order)
 			w.simulate('single', 1, show=True, diagnose=False, single_order=single_order)
 			# import pdb; pdb.set_trace()
 			stats.append(self.evaluate(sosm))
-		print(sum(stats)/len(stats))
+		
+		result = sum(stats)/len(stats)
+		print(result)
+		return result
 
 	def calculate_num_rounds(self):
 		from math import factorial
@@ -128,12 +167,18 @@ class World(object):
 
 	def run_example_multi(self):
 		sosm = w.init_example()
-		self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
+		# self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
 		w.use_DA()
 
 		stats = []
-		result = w.simulate('multiple', self.calculate_num_rounds(), show=False, diagnose=False, sosm=sosm)
+		result = w.simulate('multiple', self.calculate_num_rounds(), show=False, diagnose=False, sosm=None)
 		print(result)
+		return result
+
+	def compare_methods(self):
+		single_result = self.run_example_single()
+		multiple_result = self.run_example_multi()
+		print(single_result, multiple_result)
 
 if __name__=='__main__':
 	w = World()

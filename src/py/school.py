@@ -28,6 +28,9 @@ class School(object):
 	def __repr__(self):
 		return self.name
 
+	def __hash__(self):
+		return hash(self.name)
+
 	def init_preference(self, students, preference_order):
 		self.students = students
 		self.preference_order = preference_order
@@ -39,19 +42,19 @@ class School(object):
 
 		from math import factorial
 		self.num_std = len(self.students)
-		self.num_permutations = factorial(self.num_std)
+		self.num_permus = factorial(self.num_std)
 
 	def clear_result(self):
 		self.applications = []
 		self.current_students = []
 
 	def break_ties(self, method='multiple', single_order=None, verbose=False, 
-					rnd=None, index=None, permutations=None):
+					rnd=None, index=None, permus=None):
 		if method == 'single':
 			assert single_order is not None
 			self.__break_ties_single(single_order)
 		elif method == 'multiple':
-			self.__break_ties_multi(rnd=rnd, index=index, permutations=permutations)
+			self.__break_ties_multi(rnd=rnd, index=index, permus=permus)
 		else:
 			raise NotImplementedError('invalid method %s' % method)
 
@@ -77,24 +80,24 @@ class School(object):
 		self.preference_order = new_preference
 		self.preferences = {std: ordr for ordr, std in new_preference.items()}
 
-	def __break_ties_multi(self, rnd=None, index=None, permutations=None):
+	def __break_ties_multi(self, rnd=None, index=None, permus=None):
 		if rnd is None:
 			students = self.students
 			random.shuffle(students)
 			shuffle_result = {std: idx for idx, std in enumerate(students)}
 		else:
 			assert index is not None
-			assert permutations is not None
-			shuffle_result = self.order_by_seed(rnd, index, permutations)
+			assert permus is not None
+			shuffle_result = self.order_by_seed(rnd, index, permus)
 
 		self.__break_ties_single(shuffle_result)
 
-	def order_by_seed(self, rnd, idx, permutations):
-		cutoff = pow(self.num_permutations, idx)
-		above_cutoff = cutoff * self.num_permutations # previous digit cutoff
+	def order_by_seed(self, rnd, idx, permus):
+		cutoff = pow(self.num_permus, idx)
+		above_cutoff = cutoff * self.num_permus # previous digit cutoff
 		_rnd = rnd % above_cutoff # remove all considerations of bigger digits
 		permutation_choice = _rnd // cutoff # clock for current digit
-		permutation = permutations[permutation_choice]
+		permutation = permus[permutation_choice]
 
 		shuffle_result = {self.students[i]: permutation[i] for i in range(self.num_std)}
 		return shuffle_result
