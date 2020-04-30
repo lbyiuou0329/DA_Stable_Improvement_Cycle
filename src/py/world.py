@@ -83,7 +83,8 @@ class World(object):
 		if method == 'single':
 			if sosm is None:
 				sosm = self.find_sosm(method, single_order, None)
-				print('found sosm: \n\t %s' % sosm)
+				if diagnose:
+					print('found sosm: \n\t %s' % sosm)
 
 		stats = []
 
@@ -137,21 +138,21 @@ class World(object):
 		return {s1:x, s2:z, s3:y}
 
 	def run_one_example(self):
-		sosm = w.init_example()
-		w.use_DA()
-		result = w.simulate('single', 3, show=True, diagnose=False, single_order={self.students[i]: i for i in range(3)})
+		sosm = self.init_example()
+		self.use_DA()
+		result = self.simulate('single', 3, show=True, diagnose=False, single_order={self.students[i]: i for i in range(3)})
 		print(result)
 
 	def run_example_single(self):
-		sosm = w.init_example()
-		w.use_DA()
+		sosm = self.init_example()
+		self.use_DA()
 		# self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
 
 		stats = []
 		for permutation in self.permutations:
 			single_order = {self.students[i]: permutation[i] for i in range(3)}
 			print(single_order)
-			w.simulate('single', 1, show=True, diagnose=False, single_order=single_order)
+			self.simulate('single', 1, show=True, diagnose=False, single_order=single_order)
 			# import pdb; pdb.set_trace()
 			stats.append(self.evaluate(sosm))
 		
@@ -166,20 +167,40 @@ class World(object):
 		return pow(factorial(n_student), n_schools)
 
 	def run_example_multi(self):
-		sosm = w.init_example()
+		sosm = self.init_example()
 		# self.permutations = [[0,1,2], [0,2,1], [1,0,2], [1,2,0],[2,1,0],[2,0,1]]
-		w.use_DA()
+		self.use_DA()
 
 		stats = []
-		result = w.simulate('multiple', self.calculate_num_rounds(), show=False, diagnose=False, sosm=None)
+		result = self.simulate('multiple', self.calculate_num_rounds(), show=False, diagnose=False, sosm=None)
 		print(result)
 		return result
 
+	def run_example(self, method, show=False, diagnose=False):
+		self.init_example()
+		self.use_DA()
+		stats = []
+
+		if method == 'single':
+			for permutation in self.permutations:
+				single_order = {self.students[i]: permutation[i] for i in range(3)}
+				result = self.simulate('single', 1, show=show, diagnose=diagnose, single_order=single_order)
+				# import pdb; pdb.set_trace()
+				stats.append(result)
+			result = sum(stats)/len(stats)
+		elif method == 'multiple':
+			result = self.simulate('multiple', self.calculate_num_rounds(), show=show, diagnose=diagnose, sosm=None)
+		else:
+			raise NotImplementedError('invalid method %s' % method)
+
+		return result
+
 	def compare_methods(self):
-		single_result = self.run_example_single()
-		multiple_result = self.run_example_multi()
+		single_result = self.run_example('single')
+		multiple_result = self.run_example('multiple')
 		print(single_result, multiple_result)
+		return single_result, multiple_result
 
 if __name__=='__main__':
 	w = World()
-	w.run_example_multi()
+	w.compare_methods()
